@@ -1,45 +1,33 @@
 #include <stdio.h>
-#include<stdlib.h>
+#include <stdlib.h>
 #include <ctype.h>
-// add  $d, $s, $t	d = s + t	    000000ssssstttttddddd00000100000
-#define o_add                       0b00000011111111111111100000100000
-// sub  $d, $s, $t	d = s - t	    000000ssssstttttddddd00000100010
-#define o_sub                       0b00000011111111111111100000100010
-// and  $d, $s, $t	d = s & t	    000000ssssstttttddddd00000100100
-#define o_ando                      0b00000011111111111111100000100100
-// or   $d, $s, $t	d = s | t	    000000ssssstttttddddd00000100101
-#define o_or                        0b00000011111111111111100000100101
-// slt  $d, $s, $t	d = 1 if s < t else 0	000000ssssstttttddddd00000101010
-#define o_slt                       0b00000011111111111111100000101010
-// mul  $d, $s, $t	d = s * t	    011100ssssstttttddddd00000000010
-#define o_mul                       0b01110011111111111111100000000010
-// beq  $s, $t, I	if (s == t)     PC += I	000100ssssstttttIIIIIIIIIIIIIIII
-#define o_beq                       0b00010011111111111111111111111111
-// bne  $s, $t, I	if (s != t)     PC += I	000101ssssstttttIIIIIIIIIIIIIIII
-#define o_bne                       0b00010111111111111111111111111111
-// addi $t, $s, I	t = s + I	    001000ssssstttttIIIIIIIIIIIIIIII
-#define o_addi                      0b00100011111111111111111111111111
+// z5237560
+// XINGYU(Steve) TAN
+// COMP1521 ASSIGNMENT2
+// FINALLY FINSHIED VERSION  ||  06/08/2020
+#define add                       0b100000
+#define sub                       0b100010
+#define ando                      0b100100
+#define or                        0b100101
+#define slt                       0b101010
+#define mul_1                     0b011100
+#define mul_2                     0b000010
+#define beq                       0b000100
+#define bne                       0b000101
+#define addi                      0b001000
+#define slti                      0b001010
+#define andi                      0b001100
+#define ori                       0b001101
+#define lui                       0b001111
+#define sys                       0b001100
 
-// slti $t, $s, I	t = (s < I)	    001010ssssstttttIIIIIIIIIIIIIIII
-#define o_slti                      0b00101011111111111111111111111111
-
-// andi $t, $s, I	t = s & I	    001100ssssstttttIIIIIIIIIIIIIIII
-#define o_andi                      0b00110011111111111111111111111111
-
-// ori  $t, $s, I	t = s | I	    001101ssssstttttIIIIIIIIIIIIIIII
-#define o_ori                       0b00110111111111111111111111111111
-
-// lui  $t, I	    t = I << 16	    00111100000tttttIIIIIIIIIIIIIIII
-#define o_lui                       0b00111100000111111111111111111111
-
-// syscall	        syscall	        00000000000000000000000000001100
-#define o_sys                       0b00000000000000000000000000001100
 
 #define error_out -1
 #define number 1
 #define type 1
 #define character 2
 #define max_lines 1000
+#define max_registers 32
 /////////////////////////////////////////////////////////////////////////////
 //
 //                        MY OWEN FUCTION
@@ -47,9 +35,8 @@
 //////////////////////////////////////////////////////////////////////////////
 
 // the fuction using to runing the calculate program as background.
-int calculate_background(__uint32_t line, int *turn, __uint32_t *comand,
-__uint32_t *reg, int sum_turn, int *print_array,
-int *type_array,int *print_num);
+int calculate_background(__uint32_t line, int *turn, __uint32_t *reg,
+int *print_array, int *type_array,int *print_num);
 
 // the fuction using to print out all the commands.
 void print_program(__uint32_t line, int turn);
@@ -63,10 +50,8 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-
-
     // grab the lines from the file
-    // and make sure the total lines are less tan 1000
+    // and make sure the total lines are less than 1000
     __uint32_t comand[max_lines] = {'0'};
     int sum_turn = 0;
     while (fscanf(fp, "%x", &comand[sum_turn]) == 1
@@ -85,8 +70,8 @@ int main(int argc, char *argv[]) {
 
     int turn = 0;
     //inisilize the registers
-    __uint32_t reg[32];
-    for (int i = 0; i < 32; i++){
+    __uint32_t reg[max_registers];
+    for (int i = 0; i < max_registers; i++){
         reg[i] = 0b00;
     }
 
@@ -106,7 +91,7 @@ int main(int argc, char *argv[]) {
     // running the calculate_background fuction
     // to calculate all the registers in background
     while (turn < sum_turn){
-        if (calculate_background(comand[turn], &turn,comand, reg, sum_turn,
+        if (calculate_background(comand[turn], &turn, reg,
         print_array, type_array, &print_num)) {
             turn++;
         } else {
@@ -125,7 +110,6 @@ int main(int argc, char *argv[]) {
         // print all the numbers
         // if the matching type array is numbers symbol
         if (type_array[i] == number) {
-
             printf("%d", print_array[i]);
 
         }
@@ -161,44 +145,126 @@ int main(int argc, char *argv[]) {
 // check if the number is valid by sparate first 6  numbers
 // and last six numbers.
 int check_invalid(__uint32_t line){
+    // decode all the lines from file,
+    // and check what kind of operation they are.
     __uint16_t first = (line >> 26) & 0b111111;
     __uint16_t last = line & 0b111111;
-
+    // if it is add, sub, and, or, slt operation, return true.
     if (first == 0) {
-        if (last == 0b100000
-        || last == 0b100010
-        || last == 0b100100
-        || last == 0b100101
-        || last == 0b101010) {
+        if (last == add || last == sub || last == ando
+        || last == or || last == slt) {
             return 1;
         }
     }
-    if (first == 0b011100 && last == 0b10) {
+    // if it is mul operation, return ture.
+    if (first == mul_1 && last == mul_2) {
         return 1;
     }
-    if(first == 0b000100
-    || first == 0b000101
-    || first == 0b001000
-    || first == 0b001010
-    || first == 0b001100
-    || first == 0b001101
-    || first == 0b001111
-    || line == 0b1100
-    ) {
+    // if it is beq, bne, addi, slti, andi, ori, lui, sys operation, return ture.
+    if(first == beq || first == bne || first == addi || first == slti
+    || first == andi || first == ori || first == lui || line == sys) {
         return 1;
     }
+    // if none above, just return false.
     return 0;
 }
 
 // using fuction to calculate all the registers in background
-int calculate_background(__uint32_t line, int *turn,  __uint32_t *comand,
-__uint32_t *reg,  int sum_turn, int *print_array,
-int *type_array, int *print_num) {
-    // if the line we grab is syscall
-    if((line) == o_sys){
+int calculate_background(__uint32_t line, int *turn, __uint32_t *reg,
+int *print_array, int *type_array,int *print_num) {
+    // decode all the lines from file,
+    // and check what kind of operation they are.
+    __uint8_t d = (line >> 11)  & 0b11111;
+    __uint8_t t = (line >> 16) & 0b11111;
+    __uint8_t s = (line >> 21) & 0b11111;
+    __int16_t I = line & 0xFFFF;
+    __uint16_t first = (line >> 26) & 0b111111;
+    __uint16_t last = line & 0b111111;
+    // if the line we grab is add
+    if(first == 0 && last == add) {
+        // doing the addition
+        // add $d, $s, $t	d = s + t
+        reg[d] = reg[s] + reg[t];
+
+    } else if(first == 0 && last == sub){
+        // doing the substution.
+        // sub $d, $s, $t	d = s - t
+        reg[d] = reg[s] - reg[t];
+
+    } else if(first == 0 && last == ando){
+        // doing the '&' operation
+        // and $d, $s, $t	d = s & t
+        reg[d] = reg[s] & reg[t];
+
+    } else if(first == 0 && last == or){
+        // doing the or operation
+        // or $d, $s, $t	d = s | t
+        reg[d] = reg[s] | reg[t];
+
+    } else if(first == 0 && last == slt){
+        // doing the slt operation
+        // slt $d, $s, $t	d = 1 if s < t else 0
+        if (reg[s] < reg[t]){
+            reg[d] = 1;
+        } else {
+            reg[d] = 0;
+        }
+
+    } else if(first == mul_1 && last == mul_2){
+        // doing the mul operation
+        // mul $d, $s, $t	d = s * t
+        reg[d] = reg[s] * reg[t];
+
+    } else if(first == beq){
+        // doing the beq operation
+        // beq $s, $t, I	if (s == t) PC += I
+        if(reg[t] == reg[s]) {
+            *turn = (*turn) + I-1;
+        }
+
+    } else if(first == bne){
+        // doing the bne operation
+        // bne $s, $t, I	if (s != t) PC += I
+        if(reg[t] != reg[s]) {
+            *turn = (*turn) + I-1;
+        }
+
+    } else if(first == addi){
+        // doing the addi operation
+        // addi $t, $s, I	t = s + I
+        reg[t] = reg[s] + I;
+
+    } else if(first == slti){
+        // doing the slti operation
+        // slti $t, $s, I	t = (s < I)
+        if (reg[s] < I) {
+            reg[t] = 1;
+        } else {
+            reg[t] = 0;
+        }
+
+    } else if(first == andi){
+        // doing the andi operation
+        // andi $t, $s, I	t = s & I
+        reg[t] = (reg[s] & I);
+
+    } else if(first == ori){
+        // doing the ori operation
+        // ori $t, $s, I	t = s | I
+        reg[t] = reg[s]|I;
+
+    } else if(first == lui){
+        // doing the lui operation
+        // lui $t, I	t = I << 16
+        __int32_t I_temp  = line & 0xFFFF;
+        __uint32_t temp = 0;
+        temp |= I_temp;
+        reg[t] = temp << 16;
+
+    } else if((line) == sys){
         // if $2 is 1
         // the symbol of print number
-        // recording the number we need to print 
+        // recording the number we need to print
         // modify the type matching this number to number symbol.
         if(reg[2] == 1) {
             print_array[*print_num] = reg[4];
@@ -208,7 +274,7 @@ int *type_array, int *print_num) {
         }
         // if $2 is 11
         // the symbol of print character
-        // recording the character we need to print 
+        // recording the character we need to print
         // modify the type matching this character to character symbol.
         if(reg[2] == 11) {
             print_array[*print_num] = reg[4];
@@ -230,278 +296,67 @@ int *type_array, int *print_num) {
         (*print_num)++;
         return 1;
     }
-    // if the line we grab is add
-    if((line|o_add) == o_add) {
-        // grab d, s, t from the it
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-        // doing the addition
-        reg[d] = reg[s] + reg[t];
-        if (d == 0) {
-            reg[d] = 0;
-        }
-        return 1;
+    // if $0 has been changed, modify it back
+    // as $0 has to be always "0".
+    if (d == 0) {
+        reg[d] = 0;
     }
-    // if the line we grab is sub
-    if((line|o_sub) == o_sub){
-        // grab d, s, t from the it
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-        // doing the substution.
-        reg[d] = reg[s] - reg[t];
-        if (d == 0) {
-            reg[d] = 0;
-        }
-        return 1;
-    }
-    // if the line we grab is and
-    if((line|o_ando) == o_ando){
-        // grab d, s, t from the it
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-        // doing the '&' operation
-        reg[d] = reg[s] & reg[t];
-        if (d == 0) {
-            reg[d] = 0;
-        }
-        return 1;
-    }
-
-    if((line|o_or) == o_or){
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-
-        reg[d] = reg[s] | reg[t];
-        if (d == 0) {
-            reg[d] = 0;
-        }
-        return 1;
-
-    }
-    if((line|o_slt) == o_slt){
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-        if (reg[s] < reg[t]){
-            reg[d] = 1;
-        } else {
-            reg[d] = 0;
-        }
-        if (d == 0) {
-            reg[d] = 0;
-        }
-        return 1;
-
-    }
-    if((line|o_mul) == o_mul){
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-
-        reg[d] = reg[s] * reg[t];
-        if (d == 0) {
-            reg[d] = 0;
-        }
-        return 1;
-    }
-    if((line|o_beq) == o_beq){
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-        if(reg[t] == reg[s]) {
-            *turn = (*turn) + I-1;
-        }
-
-        return 1;
-    }
-    if((line|o_bne) == o_bne){
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-        if(reg[t] != reg[s]) {
-            *turn = (*turn) + I-1;
-        }
-
-        return 1;
-    }
-    if((line|o_addi) == o_addi){
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-        reg[t] = reg[s] + I;
-
-        if (t == 0) {
-            reg[t] = 0;
-        }
-        return 1;
-    }
-    if((line|o_slti) == o_slti){
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-
-        if (reg[s] < I) {
-            reg[t] = 1;
-        } else {
-            reg[t] = 0;
-        }
-
-        if (t == 0) {
-            reg[t] = 0;
-        }
-        return 1;
-
-    }
-    if((line|o_andi) == o_andi){
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-        reg[t] = (reg[s] & I);
-        if (t == 0) {
-            reg[t] = 0;
-        }
-        return 1;
-
-    }
-    if((line|o_ori) == o_ori){
-
-        __int16_t I  = line & 0xFFFF;
-
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-        reg[t] = reg[s]|I;
-        if (t == 0) {
-            reg[t] = 0;
-        }
-        return 1;
-
-    }
-    if((line|o_lui) == o_lui){
-        __int32_t I  = line & 0xFFFF;
-        __uint32_t temp = 0;
-        temp |= I;
-        __uint8_t t =((line>>16) & 0b11111);
-        reg[t] = temp << 16;
-
-        if (t == 0) {
-            reg[t] = 0;
-        }
-        return 1;
-    }
-    return 0;
+    return 1;
 }
 
-
+// this fuction is going to print out all the command
+// before doing the calculate and only print them once.
 void print_program(__uint32_t line, int turn){
-     if((line) == o_sys){
-        printf("%3d: syscall\n", turn);
+    // decode all the lines from file,
+    // and check what kind of operation they are.
+    __uint8_t d = (line >> 11)  & 0b11111;
+    __uint8_t t = (line >> 16) & 0b11111;
+    __uint8_t s = (line >> 21) & 0b11111;
+    __int16_t I = line & 0xFFFF;
+    __uint16_t first = (line >> 26) & 0b111111;
+    __uint16_t last = line & 0b111111;
 
-
-        return;
-    }
-    else if((line|o_add) == o_add) {
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+    if(first == 0 && last == add) {
         printf("%3d: add  $%d, $%d, $%d\n",turn, d, s, t);
 
-    }
-    else if((line|o_sub) == o_sub){
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+    } else if(first == 0 && last == sub){
         printf("%3d: sub  $%d, $%d, $%d\n",turn, d, s, t);
 
-    }
-    else if((line|o_ando) == o_ando){
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
-
+    } else if(first == 0 && last == ando){
         printf("%3d: and  $%d, $%d, $%d\n",turn, d, s, t);
 
-    }
-    else if((line|o_or) == o_or){
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+    } else if(first == 0 && last == or){
         printf("%3d: or   $%d, $%d, $%d\n",turn, d, s, t);
 
-
-    }
-    else if((line|o_slt) == o_slt){
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t = ((line>>16) & 0b11111);
-        __uint8_t s = ((line>>(16+5)) & 0b11111);
-
+    } else if(first == 0 && last == slt){
         printf("%3d: slt  $%d, $%d, $%d\n",turn, d, s, t);
-        return;
 
-    }
-    else if((line|o_mul) == o_mul){
-        __uint8_t d  = (line>>11)  & 0b11111;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+    } else if(first == mul_1 && last == mul_2){
         printf("%3d: mul  $%d, $%d, $%d\n",turn, d, s, t);
 
-
-
-    }
-    else if((line|o_beq) == o_beq){
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+    } else if(first == beq){
         printf("%3d: beq  $%d, $%d, %d\n",turn, s, t, I);
 
-    }
-    else if((line|o_bne) == o_bne){
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+    } else if(first == bne){
         printf("%3d: bne  $%d, $%d, %d\n",turn, s, t, I);
-        return;
-    }
-    else if((line|o_addi) == o_addi){
 
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+    } else if(first == addi){
         printf("%3d: addi $%d, $%d, %d\n",turn, s, t, I);
 
-        return;
-
-    }
-    else if((line|o_slti) == o_slti){
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+    } else if(first == slti){
         printf("%3d: slti $%d, $%d, %d\n",turn, t, s, I);
-        return;
-    }
-    else if((line|o_andi) == o_andi){
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+
+    } else if(first == andi){
         printf("%3d: andi $%d, $%d, %d\n",turn, t, s, I);
-        return;
-    }
-    else if((line|o_ori) == o_ori){
 
-        __int16_t I  = line & 0xFFFF;
-        __uint8_t t =((line>>16) & 0b11111);
-        __uint8_t s =((line>>(16+5)) & 0b11111);
+    } else if(first == ori){
         printf("%3d: ori  $%d, $%d, %d\n",turn, t, s, I);
-        return;
-    }
-    else if((line|o_lui) == o_lui){
-        __int16_t I  = line & 0xFFFF;
 
-        __uint8_t t =((line>>16) & 0b11111);
+    } else if(first == lui){
         printf("%3d: lui  $%d, %d\n",turn, t, I);
+
+    } else if((line) == sys){
+        printf("%3d: syscall\n", turn);
     }
     return;
 }
