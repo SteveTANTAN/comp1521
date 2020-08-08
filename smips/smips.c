@@ -1,10 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
 // z5237560
 // XINGYU(Steve) TAN
 // COMP1521 ASSIGNMENT2
 // FINALLY FINSHIED VERSION  ||  06/08/2020
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+
 #define add                       0b100000
 #define sub                       0b100010
 #define ando                      0b100100
@@ -24,7 +25,6 @@
 
 #define error_out -1
 #define number 1
-#define type 1
 #define character 2
 #define max_lines 1000
 #define max_registers 32
@@ -174,12 +174,13 @@ int calculate_background(__uint32_t line, int *turn, __uint32_t *reg,
 int *print_array, int *type_array,int *print_num) {
     // decode all the lines from file,
     // and check what kind of operation they are.
-    __uint8_t d = (line >> 11)  & 0b11111;
-    __uint8_t t = (line >> 16) & 0b11111;
-    __uint8_t s = (line >> 21) & 0b11111;
+    __int8_t d = (line >> 11)  & 0b11111;
+    __int8_t t = (line >> 16) & 0b11111;
+    __int8_t s = (line >> 21) & 0b11111;
     __int16_t I = line & 0xFFFF;
-    __uint16_t first = (line >> 26) & 0b111111;
-    __uint16_t last = line & 0b111111;
+    __int16_t first = (line >> 26) & 0b111111;
+    __int16_t last = line & 0b111111;
+
     // if the line we grab is add
     if(first == 0 && last == add) {
         // doing the addition
@@ -237,11 +238,10 @@ int *print_array, int *type_array,int *print_num) {
     } else if(first == slti){
         // doing the slti operation
         // slti $t, $s, I	t = (s < I)
-        if (reg[s] < I) {
-            reg[t] = 1;
-        } else {
-            reg[t] = 0;
-        }
+        // __int16_t temp = (line & 0xffff);
+        int temp = I;
+        int regs = reg[s];
+        reg[t] = (regs < temp);
 
     } else if(first == andi){
         // doing the andi operation
